@@ -1,0 +1,8 @@
+app_id,app_name,user_id,country_code,language,review_text,voted_up,tag,date_created
+123,Portal 2,user1,BR,portuguese,"Este jogo é simplesmente fantástico! Muito bom mesmo.",True,Puzzle,28/06/2026
+123,Portal 2,user2,US,english,"Pretty fun game, I liked the mechanics and physics <br> 10/10",True,Puzzle,28/06/2026
+456,Bad Game,user3,BR,portuguese,"Péssimo. Dinheiro jogado fora, cheio de bugs e travamentos.",False,Action,28/06/2026
+456,Bad Game,user4,US,english,"Terrible gameplay and very boring. Do not buy! http://link-to-review.com",False,Action,28/06/2026
+123,Portal 2,user5,BR,portuguese,"Muito bom.",True,Puzzle,28/06/2026
+456,Bad Game,user6,BR,portuguese,"Horrível.",False,Action,28/06/2026
+

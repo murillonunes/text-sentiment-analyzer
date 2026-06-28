@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local sentiment reports and sample output files
+reports/
+*_analyzed.csv
