@@ -1,6 +1,9 @@
 import argparse
+import datetime
+import json
 import os
 import sys
+import time
 import pandas as pd
 
 from sentiment_analyzer.analyzer import SentimentAnalyzer
@@ -8,7 +11,7 @@ from sentiment_analyzer.analyzer import SentimentAnalyzer
 def main():
     parser = argparse.ArgumentParser(description="Emotion and Sentiment Analyzer CLI for Steam reviews and general text.")
     parser.add_argument("input_path", type=str, help="Path to input CSV or JSON file.")
-    parser.add_argument("-o", "--output-path", type=str, help="Path to output CSV file. Defaults to <input_base>_analyzed.csv.")
+    parser.add_argument("-o", "--output-path", type=str, help="Path to output CSV file. Defaults to outputs/run_<timestamp>_<filename>/<filename>_analyzed.csv.")
     parser.add_argument("-m", "--model-name", type=str, default="tabularisai/multilingual-emotion-classification",
                         help="Hugging Face model name/path.")
     parser.add_argument("-tc", "--text-column", type=str, default="review_text",
@@ -24,10 +27,26 @@ def main():
     
     args = parser.parse_args()
     
+    # Start timer
+    start_time = time.time()
+    
     # Check input file existence
     if not os.path.exists(args.input_path):
         print(f"Error: Input file '{args.input_path}' not found.", file=sys.stderr)
         sys.exit(1)
+        
+    # Generate run directory name
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name = os.path.splitext(os.path.basename(args.input_path))[0]
+    
+    # Truncate filename if it exceeds 25 characters to prevent path length issues
+    max_filename_len = 25
+    truncated_name = base_name
+    if len(base_name) > max_filename_len:
+        truncated_name = base_name[:max_filename_len].rstrip("_").rstrip("-")
+        
+    run_dir = f"outputs/run_{timestamp}_{truncated_name}"
+    os.makedirs(run_dir, exist_ok=True)
         
     # Read file
     print(f"Loading data from '{args.input_path}'...")
@@ -66,14 +85,14 @@ def main():
     # Define output path
     output_path = args.output_path
     if not output_path:
-        base, _ = os.path.splitext(args.input_path)
-        output_path = f"{base}_analyzed.csv"
+        output_path = os.path.join(run_dir, f"{base_name}_analyzed.csv")
         
     # Save output
     print(f"Saving analyzed data to '{output_path}'...")
     analyzed_df.to_csv(output_path, index=False)
     
     # Evaluate agreement and metrics
+    metrics = None
     if args.voted_up_column in analyzed_df.columns:
         print("\nEvaluating agreement with user recommendations...")
         metrics = SentimentAnalyzer.evaluate_agreement(
@@ -92,11 +111,33 @@ def main():
                 
             # Save report
             if not args.skip_report:
-                os.makedirs(args.report_dir, exist_ok=True)
+                report_dir = args.report_dir
+                if report_dir == "reports":
+                    report_dir = os.path.join(run_dir, "plots")
+                os.makedirs(report_dir, exist_ok=True)
                 # Generate report
-                generate_visualizations(analyzed_df, args.voted_up_column, args.report_dir)
+                generate_visualizations(analyzed_df, args.voted_up_column, report_dir)
         else:
             print("Could not evaluate agreement (insufficient valid data or missing columns).")
+            
+    # Save summary execution JSON
+    execution_time = time.time() - start_time
+    summary_data = {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "input_file": args.input_path,
+        "model_name": args.model_name,
+        "min_words": args.min_words,
+        "device": args.device or "auto-detect",
+        "batch_size": args.batch_size,
+        "execution_time_seconds": round(execution_time, 2)
+    }
+    if metrics:
+        summary_data["metrics"] = metrics
+        
+    summary_path = os.path.join(run_dir, "summary.json")
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(summary_data, f, indent=4, ensure_ascii=False)
+    print(f"Saved execution summary to: {summary_path}")
             
     print("\nProcessing complete!")
 
