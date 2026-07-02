@@ -1,106 +1,106 @@
 # Text Sentiment & Emotion Analyzer
 
-Pipeline de processamento de linguagem natural (NLP) em Python para análise de sentimentos e classificação de emoções em textos (como reviews de jogos da Steam). A aplicação suporta modelos multilíngues do Hugging Face, pré-processamento robusto de texto, geração de relatórios interativos em HTML e logs automatizados.
+A Python-based Natural Language Processing (NLP) pipeline for sentiment analysis and emotion classification on text datasets (such as Steam game reviews). The application supports multilingual Hugging Face models, robust text preprocessing, interactive HTML dashboard generation, and automated execution logging.
 
 ---
 
-## 🚀 Principais Funcionalidades
+## 🚀 Key Features
 
-* **Classificação de Emoções e Sentimentos:**
-  * Suporta modelos de **Emoção** (ex: `tabularisai/multilingual-emotion-classification`), que classificam textos em até 11 classes (alegria, raiva, tristeza, desprezo, etc.).
-  * Suporta modelos de **Sentimento Direto** (ex: `cardiffnlp/xlm-roberta-base-tweet-sentiment-pt`), classificando em positivo, negativo ou neutro.
-* **Heurística de Correção Baseada no Voto do Usuário (Steam):**
-  * Corrige automaticamente falsos negativos de sarcasmo/ironia (como classificar *"MELHOR JOGO JÁ CRIADO !!!"* como *contempt* ou *anger*). Se o voto do usuário (`voted_up`) for `True`, emoções negativas detectadas em frases curtas são ajustadas para `joy`.
-  * Adiciona uma coluna de tag (`emotion_adjustment`) sinalizando se o resultado foi `adjusted` ou se manteve o `original`.
-* **Pré-Processador de Texto Inteligente:**
-  * Remoção automática de tags HTML e URLs.
-  * Normalização de espaços em branco e quebras de linha.
-  * **Filtro de Pontuação Solta:** Remove pontuações isoladas (como `" !!!"`) para garantir a exatidão no filtro de número mínimo de palavras (`--min-words`).
-* **Visualização e Relatório HTML Premium:**
-  * Dashboard interativo em HTML com tema escuro moderno.
-  * Exibe estatísticas de tempo de execução, taxa de concordância entre predições e recomendações, tabelas detalhadas das últimas reviews analisadas (sinalizando os ajustes) e gráficos gerados automaticamente (`matplotlib` & `seaborn`).
-* **Sistema de Logging Histórico:**
-  * **Log Global (`outputs/executions.log`):** Mantém o histórico completo de todas as execuções da CLI.
-  * **Log Local:** Grava um arquivo individual de log (`execution.log`) na pasta específica de cada execução, ao lado das saídas salvas.
+* **Emotion and Sentiment Classification:**
+  * Supports **Emotion** models (e.g., `tabularisai/multilingual-emotion-classification`), which classify texts into 11 granular categories (joy, anger, sadness, contempt, etc.).
+  * Supports **Direct Sentiment** models (e.g., `cardiffnlp/xlm-roberta-base-tweet-sentiment-pt`), classifying text directly into positive, negative, or neutral.
+* **User Recommendation-Based Heuristic Correction (Steam):**
+  * Automatically corrects sarcasm/irony false negatives (e.g., classifying *"MELHOR JOGO JÁ CRIADO !!!"* / *"BEST GAME EVER CREATED !!!"* as *contempt* or *anger*). If the user recommendation (`voted_up`) is `True`, negative emotions detected in short reviews are adjusted to `joy`.
+  * Adds an adjustment tag column (`emotion_adjustment`) indicating whether the prediction was `adjusted` or remained `original`.
+* **Smart Text Preprocessor:**
+  * Automatic removal of HTML tags and URLs.
+  * Normalization of whitespaces and line breaks.
+  * **Standalone Punctuation Filtering:** Removes isolated punctuation (such as `" !!!"`) to ensure exact counts for the minimum word filter (`--min-words`).
+* **Premium HTML Dashboard & Visualizations:**
+  * Modern, interactive dark-theme HTML dashboard report.
+  * Displays execution time, agreement rates between predictions and user recommendations, a detailed sample table highlighting adjustments, and automatically generated plots (`matplotlib` & `seaborn`).
+* **Automated Logging System:**
+  * **Global Log (`outputs/executions.log`):** Maintains a historical ledger of all CLI runs.
+  * **Local Log:** Saves a run-specific `execution.log` file in the output directory created for that specific execution, alongside the output files.
 
 ---
 
-## 📂 Estrutura do Projeto
+## 📂 Project Structure
 
 * `src/sentiment_analyzer/`
-  * [preprocessor.py](src/sentiment_analyzer/preprocessor.py): Módulo de limpeza e normalização do texto.
-  * [analyzer.py](src/sentiment_analyzer/analyzer.py): Orquestrador do pipeline (análise de DataFrames, aplicação de heurísticas e cálculo de métricas).
-  * [cli.py](src/sentiment_analyzer/cli.py): Interface de Linha de Comando (CLI), geração de relatórios gráficos/HTML e gravação de logs.
+  * [preprocessor.py](src/sentiment_analyzer/preprocessor.py): Text cleaning and normalization module.
+  * [analyzer.py](src/sentiment_analyzer/analyzer.py): Pipeline orchestrator (DataFrame analysis, heuristic correction, and metrics calculation).
+  * [cli.py](src/sentiment_analyzer/cli.py): Command Line Interface (CLI), visualization generation, HTML dashboard, and logging.
   * `backends/`
-    * [transformers.py](src/sentiment_analyzer/backends/transformers.py): Conector para modelos do Hugging Face.
-* `tests/`: Testes unitários com `pytest`.
-* `outputs/`: Diretório padrão de saída que agrupa os resultados por execução (`run_YYYYMMDD_HHMMSS_<nome_do_arquivo>`).
+    * [transformers.py](src/sentiment_analyzer/backends/transformers.py): Connector for Hugging Face models.
+* `tests/`: Unit tests with `pytest`.
+* `outputs/`: Default output directory grouping results by execution run (`run_YYYYMMDD_HHMMSS_<filename>`).
 
 ---
 
-## 🛠️ Instalação e Configuração
+## 🛠️ Installation & Setup
 
-Certifique-se de ter o Python 3.10+ instalado.
+Make sure you have Python 3.10+ installed.
 
-1. **Clone o repositório:**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/murillonunes/text-sentiment-analyzer.git
    cd text-sentiment-analyzer
    ```
 
-2. **Crie e ative o ambiente virtual:**
+2. **Create and activate a virtual environment:**
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
    ```
 
-3. **Instale as dependências:**
+3. **Install the dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
 ---
 
-## 💻 Como Executar a CLI
+## 💻 Running the CLI
 
-A CLI aceita arquivos nos formatos `.csv` e `.json`.
+The CLI accepts input files in `.csv` and `.json` formats.
 
-### Exemplos de Uso
+### Usage Examples
 
-1. **Execução Básica (Modelo Padrão de Emoções):**
+1. **Basic Execution (Default Emotion Model):**
    ```bash
-   python -m sentiment_analyzer.cli caminho_do_seu_arquivo.csv
+   python -m sentiment_analyzer.cli tests/fixtures/sample_reviews.csv
    ```
 
-2. **Definindo um Limite de Palavras Mínimo (Filtro):**
-   Filtra e ignora avaliações que tenham menos de 5 palavras:
+2. **Defining a Minimum Word Count Filter:**
+   Filters and ignores reviews with fewer than 5 words:
    ```bash
-   python -m sentiment_analyzer.cli caminho_do_seu_arquivo.csv --min-words 5
+   python -m sentiment_analyzer.cli tests/fixtures/sample_reviews.csv --min-words 5
    ```
 
-3. **Utilizando outro Modelo do Hugging Face (Sentimento em Português):**
+3. **Using an Alternative Hugging Face Model (Portuguese Sentiment):**
    ```bash
-   python -m sentiment_analyzer.cli caminho_do_seu_arquivo.csv -m cardiffnlp/xlm-roberta-base-tweet-sentiment-pt
+   python -m sentiment_analyzer.cli tests/fixtures/sample_reviews.csv -m cardiffnlp/xlm-roberta-base-tweet-sentiment-pt
    ```
 
-### Parâmetros Disponíveis
+### Available Parameters
 
-| Flag | Descrição | Padrão |
-|------|-----------|--------|
-| `input_path` | Caminho para o arquivo CSV/JSON de entrada. | *(Obrigatório)* |
-| `-m`, `--model-name` | Nome/caminho do modelo Hugging Face a utilizar. | `tabularisai/multilingual-emotion-classification` |
-| `-o`, `--output-path` | Caminho de destino para salvar o arquivo analisado. | `outputs/run_<run_id>/<nome>_analyzed.csv` |
-| `-tc`, `--text-column` | Coluna com o texto a ser analisado. | `review_text` |
-| `-vc`, `--voted-up-column` | Coluna com o voto Steam (`True` / `False`). | `voted_up` |
-| `-b`, `--batch-size` | Tamanho do lote (*batch size*) para inferência. | `32` |
-| `--min-words` | Ignora textos com contagem de palavras menor que o valor. | `0` |
-| `--skip-report` | Pula a geração dos gráficos e do dashboard HTML. | `False` |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `input_path` | Path to the input CSV or JSON file. | *(Required)* |
+| `-m`, `--model-name` | Hugging Face model identifier/path to use. | `tabularisai/multilingual-emotion-classification` |
+| `-o`, `--output-path` | Custom file path to save the analyzed CSV. | `outputs/run_<run_id>/<name>_analyzed.csv` |
+| `-tc`, `--text-column` | Column name containing the text to analyze. | `review_text` |
+| `-vc`, `--voted-up-column` | Column name containing the user recommendation (`True` / `False`). | `voted_up` |
+| `-b`, `--batch-size` | Batch size for model inference. | `32` |
+| `--min-words` | Ignore texts with a word count below this threshold. | `0` |
+| `--skip-report` | Skip generating the charts and the HTML dashboard report. | `False` |
 
 ---
 
-## 🧪 Rodando os Testes
+## 🧪 Running Tests
 
-Para garantir a estabilidade das modificações e lógica de classificação, você pode rodar os testes usando:
+To verify code stability and classification logic, run the test suite:
 
 ```bash
 python -m pytest
