@@ -49,10 +49,10 @@ class SentimentAnalyzer:
                 
         return results
         
-    def analyze_dataframe(self, df: pd.DataFrame, text_column: str = "review_text", batch_size: int = 32) -> pd.DataFrame:
+    def analyze_dataframe(self, df: pd.DataFrame, text_column: str = "review_text", voted_up_column: str = None, batch_size: int = 32) -> pd.DataFrame:
         """
         Analyze a pandas DataFrame containing a column of text.
-        Adds 'emotion' and 'emotion_score' columns to a copy of the DataFrame.
+        Adds 'emotion', 'emotion_score', and 'emotion_adjustment' columns to a copy of the DataFrame.
         """
         if text_column not in df.columns:
             raise ValueError(f"Column '{text_column}' not found in DataFrame.")
@@ -93,6 +93,23 @@ class SentimentAnalyzer:
                 
         df["emotion"] = [r["label"] for r in results]
         df["emotion_score"] = [r["score"] for r in results]
+        
+        # Initialize adjustment column
+        df["emotion_adjustment"] = "original"
+        
+        if voted_up_column and voted_up_column in df.columns:
+            negative_emotions_to_correct = {"contempt", "anger", "frustration", "disgust"}
+            adjusted_count = 0
+            for idx, row in df.iterrows():
+                voted_val = row[voted_up_column]
+                if voted_val is True or str(voted_val).lower() == 'true':
+                    orig_emo = row["emotion"]
+                    if orig_emo in negative_emotions_to_correct:
+                        df.at[idx, "emotion"] = "joy"
+                        df.at[idx, "emotion_adjustment"] = "adjusted"
+                        adjusted_count += 1
+            if adjusted_count > 0:
+                print(f"Applied heuristic adjustment on {adjusted_count} reviews (changed negative emotion to 'joy' based on {voted_up_column}=True).")
         
         return df
         

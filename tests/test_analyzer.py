@@ -65,3 +65,25 @@ def test_analyzer_min_words_filter(mock_pipeline):
     metrics = SentimentAnalyzer.evaluate_agreement(result_df)
     assert metrics["agreement_rate"] == 1.0
     assert metrics["total_count"] == 1
+
+@patch("sentiment_analyzer.backends.transformers.pipeline")
+def test_analyzer_heuristic_adjustment(mock_pipeline):
+    mock_pipe_instance = MagicMock()
+    # Mock pipeline returning "contempt" for a review
+    mock_pipe_instance.return_value = [[{"label": "contempt", "score": 0.48}]]
+    mock_pipeline.return_value = mock_pipe_instance
+    
+    analyzer = SentimentAnalyzer(backend_model="mock-model", device="cpu")
+    
+    # Input DataFrame with a review classified as contempt but voted_up = True
+    df = pd.DataFrame({
+        "review_text": ["simplesmente o melhor jogo ja feito"],
+        "voted_up": [True]
+    })
+    
+    # Run analysis passing voted_up_column
+    result_df = analyzer.analyze_dataframe(df, text_column="review_text", voted_up_column="voted_up", batch_size=1)
+    
+    # Verify outputs: should be adjusted to joy and tagged as adjusted
+    assert result_df.loc[0, "emotion"] == "joy"
+    assert result_df.loc[0, "emotion_adjustment"] == "adjusted"

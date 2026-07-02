@@ -80,7 +80,12 @@ def main():
     
     # Run analysis
     print(f"Starting emotion analysis on {len(df)} rows (batch size: {args.batch_size})...")
-    analyzed_df = analyzer.analyze_dataframe(df, text_column=args.text_column, batch_size=args.batch_size)
+    analyzed_df = analyzer.analyze_dataframe(
+        df, 
+        text_column=args.text_column, 
+        voted_up_column=args.voted_up_column, 
+        batch_size=args.batch_size
+    )
     
     # Define output path
     output_path = args.output_path
@@ -138,6 +143,33 @@ def main():
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary_data, f, indent=4, ensure_ascii=False)
     print(f"Saved execution summary to: {summary_path}")
+
+    # Write execution log entry
+    log_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = (
+        f"[{log_timestamp}] "
+        f"Model: {args.model_name} | "
+        f"Original File: {args.input_path} | "
+        f"Result File: {output_path}\n"
+    )
+    
+    # Save local log inside run directory
+    local_log_path = os.path.join(run_dir, "execution.log")
+    try:
+        with open(local_log_path, "w", encoding="utf-8") as f:
+            f.write(log_entry)
+        print(f"Saved local execution log to: {local_log_path}")
+    except Exception as e:
+        print(f"Warning: Could not save local execution log: {e}", file=sys.stderr)
+        
+    # Append to global executions log
+    global_log_path = "outputs/executions.log"
+    try:
+        with open(global_log_path, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+        print(f"Appended entry to global executions log: {global_log_path}")
+    except Exception as e:
+        print(f"Warning: Could not append to global executions log: {e}", file=sys.stderr)
 
     # Generate HTML Dashboard Report
     if not args.skip_report:
@@ -209,6 +241,7 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
             badge_map = {
                 "joy": "badge-joy", "love": "badge-love", "anger": "badge-anger",
                 "sadness": "badge-sadness", "disgust": "badge-disgust", "neutral": "badge-neutral",
+                "positive": "badge-positive", "negative": "badge-negative",
                 "skipped_short": "badge-skipped"
             }
             emo_class = badge_map.get(emo_clean, "badge-skipped")
@@ -216,12 +249,16 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
             score_val = row.get("emotion_score", 0.0)
             score_str = f"{score_val:.1%}" if emo != "skipped_short" else "0.0%"
             
+            adjustment_val = str(row.get("emotion_adjustment", "original"))
+            adjustment_class = "badge-adjusted" if adjustment_val == "adjusted" else "badge-original"
+            
             sample_rows_html += f"""
             <tr>
                 <td title="{text_val}">{text_snippet}</td>
                 <td><span class="badge {voted_class}">{voted_str}</span></td>
                 <td><span class="badge {emo_class}">{emo}</span></td>
                 <td><strong>{score_str}</strong></td>
+                <td><span class="badge {adjustment_class}">{adjustment_val}</span></td>
             </tr>
             """
             
@@ -236,6 +273,7 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
                 badge_map = {
                     "joy": "badge-joy", "love": "badge-love", "anger": "badge-anger",
                     "sadness": "badge-sadness", "disgust": "badge-disgust", "neutral": "badge-neutral",
+                    "positive": "badge-positive", "negative": "badge-negative",
                     "skipped_short": "badge-skipped"
                 }
                 emo_class = badge_map.get(emo_clean, "badge-skipped")
@@ -477,6 +515,10 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
         .badge-sadness {{ background: rgba(96, 165, 250, 0.15); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.2); }}
         .badge-disgust {{ background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.2); }}
         .badge-neutral {{ background: rgba(156, 163, 175, 0.15); color: #d1d5db; border: 1px solid rgba(156, 163, 175, 0.2); }}
+        .badge-positive {{ background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2); }}
+        .badge-negative {{ background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.2); }}
+        .badge-adjusted {{ background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.2); }}
+        .badge-original {{ background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.1); }}
         .badge-skipped {{ background: rgba(255, 255, 255, 0.05); color: #9ca3af; border: 1px solid rgba(255, 255, 255, 0.1); }}
     </style>
 </head>
@@ -552,6 +594,7 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
                             <th>Voto Steam</th>
                             <th>Emoção Predita</th>
                             <th>Confiança</th>
+                            <th>Ajuste</th>
                         </tr>
                     </thead>
                     <tbody>
