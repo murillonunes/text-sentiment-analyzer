@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Any, Dict, List
 import torch
 from transformers import pipeline
 
@@ -37,7 +37,7 @@ class TransformersBackend(BaseSentimentBackend):
                 "text-classification",
                 model=self.model_name,
                 device=device_idx,
-                top_k=1
+                top_k=None,
             )
             
     def _normalize_label(self, label: str) -> str:
@@ -45,68 +45,125 @@ class TransformersBackend(BaseSentimentBackend):
         Normalize label to lowercase and strip whitespace.
         """
         return label.strip().lower()
+
+    def metadata(self) -> Dict[str, Any]:
+        """Returns the loaded model identity and classification configuration."""
+        self._init_pipeline()
+        model = getattr(self.pipeline, "model", None)
+        config = getattr(model, "config", None)
+        tokenizer = getattr(self.pipeline, "tokenizer", None)
+        return {
+            "requested_model": self.model_name,
+            "resolved_model": getattr(config, "_name_or_path", self.model_name),
+            "revision": getattr(config, "_commit_hash", None),
+            "problem_type": getattr(config, "problem_type", None),
+            "num_labels": getattr(config, "num_labels", None),
+            "id2label": getattr(config, "id2label", None),
+            "tokenizer_max_length": getattr(
+                tokenizer,
+                "model_max_length",
+                None,
+            ),
+            "device": self.device,
+        }
             
-    def predict(self, text: str) -> Dict[str, Union[str, float]]:
+    def _parse_prediction(self, raw_result: Any) -> Dict[str, Any]:
+        """Normalizes a pipeline response while preserving every label score."""
+        values = raw_result
+        while (
+            isinstance(values, list)
+            and len(values) == 1
+            and isinstance(values[0], list)
+        ):
+            values = values[0]
+        if isinstance(values, dict):
+            values = [values]
+        if not isinstance(values, list):
+            raise ValueError("Unexpected model prediction format")
+
+        scores = {
+            self._normalize_label(str(item["label"])): float(item["score"])
+            for item in values
+            if isinstance(item, dict)
+            and "label" in item
+            and "score" in item
+        }
+        if not scores:
+            raise ValueError("Model prediction did not contain label scores")
+        label, score = max(scores.items(), key=lambda item: item[1])
+        return {
+            "label": label,
+            "score": score,
+            "scores": scores,
+            "status": "analyzed",
+        }
+
+    @staticmethod
+    def _failed_prediction() -> Dict[str, Any]:
+        return {
+            "label": None,
+            "score": None,
+            "scores": {},
+            "status": "inference_failed",
+        }
+
+    def predict(self, text: str) -> Dict[str, Any]:
         """
         Predict label for a single text.
         """
         self._init_pipeline()
         if not text or not isinstance(text, str) or not text.strip():
-            return {"label": "neutral", "score": 0.0}
-            
-        # Run pipeline
-        try:
-            results = self.pipeline(text)
-            # If top_k=1 is used, results is [[{'label': '...', 'score': ...}]]
-            res = results[0][0] if isinstance(results[0], list) else results[0]
             return {
-                "label": self._normalize_label(res["label"]),
-                "score": float(res["score"])
+                "label": None,
+                "score": None,
+                "scores": {},
+                "status": "empty_text",
             }
-        except Exception as e:
-            try:
-                # Truncate text to a reasonable length and try again
-                truncated_text = text[:500]
-                results = self.pipeline(truncated_text)
-                res = results[0][0] if isinstance(results[0], list) else results[0]
-                return {
-                    "label": self._normalize_label(res["label"]),
-                    "score": float(res["score"])
-                }
-            except Exception:
-                return {"label": "neutral", "score": 0.0}
+
+        try:
+            results = self.pipeline(text, truncation=True)
+            return self._parse_prediction(results)
+        except Exception:
+            return self._failed_prediction()
                 
-    def predict_batch(self, texts: List[str], batch_size: int = 32) -> List[Dict[str, Union[str, float]]]:
+    def predict_batch(
+        self, texts: List[str], batch_size: int = 32
+    ) -> List[Dict[str, Any]]:
         """
         Predict labels for a batch of texts.
         """
         self._init_pipeline()
         
         # Filter and track indices of valid texts
-        results = [{"label": "neutral", "score": 0.0} for _ in texts]
+        results = [self._failed_prediction() for _ in texts]
         valid_indices = []
         valid_texts = []
         
         for idx, text in enumerate(texts):
             if text and isinstance(text, str) and text.strip():
                 valid_indices.append(idx)
-                # Truncate to 1000 characters to be safe.
-                valid_texts.append(text[:1000])
+                valid_texts.append(text)
+            else:
+                results[idx] = {
+                    "label": None,
+                    "score": None,
+                    "scores": {},
+                    "status": "empty_text",
+                }
                 
         if not valid_texts:
             return results
             
         try:
             # Run batch inference
-            batch_results = self.pipeline(valid_texts, batch_size=batch_size, truncation=True)
-            for idx, res in zip(valid_indices, batch_results):
-                # If top_k=1 is used, res is [{'label': '...', 'score': ...}]
-                single_res = res[0] if isinstance(res, list) else res
-                results[idx] = {
-                    "label": self._normalize_label(single_res["label"]),
-                    "score": float(single_res["score"])
-                }
-        except Exception as e:
+            batch_results = self.pipeline(
+                valid_texts,
+                batch_size=batch_size,
+                truncation=True,
+            )
+            for idx, raw_result in zip(valid_indices, batch_results):
+                results[idx] = self._parse_prediction(raw_result)
+        except Exception:
             # Fallback to single predictions if batch fails
             for idx in valid_indices:
                 results[idx] = self.predict(texts[idx])

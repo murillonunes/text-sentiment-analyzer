@@ -5,7 +5,13 @@ class Preprocessor:
     Cleaner and preprocessor for text data.
     """
     
-    def __init__(self, remove_html: bool = True, remove_urls: bool = True, strip_whitespace: bool = True, remove_standalone_punct: bool = True):
+    def __init__(
+        self,
+        remove_html: bool = True,
+        remove_urls: bool = True,
+        strip_whitespace: bool = True,
+        remove_standalone_punct: bool = False,
+    ):
         self.remove_html = remove_html
         self.remove_urls = remove_urls
         self.strip_whitespace = strip_whitespace
@@ -30,7 +36,8 @@ class Preprocessor:
         if self.remove_urls:
             text = self.url_pattern.sub(' ', text)
             
-        # Remove standalone punctuation
+        # Optional legacy behavior. Disabled by default because punctuation,
+        # symbols, and emojis can carry emotional information.
         if self.remove_standalone_punct:
             text = self.standalone_punct_pattern.sub(' ', text)
             

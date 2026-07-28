@@ -24,8 +24,16 @@ def main():
     parser.add_argument("--skip-report", action="store_true", help="Skip generating a report/plots.")
     parser.add_argument("--report-dir", type=str, default="reports", help="Directory to save report output/plots.")
     parser.add_argument("--min-words", type=int, default=0, help="Minimum number of words required in a review to be analyzed.")
+    parser.add_argument(
+        "--emotion-threshold",
+        type=float,
+        default=0.5,
+        help="Independent multi-label probability threshold (default: 0.5).",
+    )
     
     args = parser.parse_args()
+    if not 0.0 <= args.emotion_threshold <= 1.0:
+        parser.error("--emotion-threshold must be between 0 and 1")
     
     # Start timer
     start_time = time.time()
@@ -86,6 +94,11 @@ def main():
         voted_up_column=args.voted_up_column, 
         batch_size=args.batch_size
     )
+    analyzed_df = SentimentAnalyzer.add_analysis_year(analyzed_df)
+    emotion_summary = SentimentAnalyzer.summarize_emotions(
+        analyzed_df,
+        threshold=args.emotion_threshold,
+    )
     
     # Define output path
     output_path = args.output_path
@@ -95,6 +108,9 @@ def main():
     # Save output
     print(f"Saving analyzed data to '{output_path}'...")
     analyzed_df.to_csv(output_path, index=False)
+    emotion_summary_path = os.path.join(run_dir, "emotion_summary.csv")
+    emotion_summary.to_csv(emotion_summary_path, index=False)
+    print(f"Saved emotion summary to: {emotion_summary_path}")
     
     # Evaluate agreement and metrics
     metrics = None
@@ -131,9 +147,25 @@ def main():
         "timestamp": datetime.datetime.now().isoformat(),
         "input_file": args.input_path,
         "model_name": args.model_name,
+        "model_metadata": analyzer.backend.metadata(),
         "min_words": args.min_words,
         "device": args.device or "auto-detect",
         "batch_size": args.batch_size,
+        "emotion_threshold": args.emotion_threshold,
+        "score_interpretation": (
+            "Independent model probability for each emotion; not a direct "
+            "measurement of a person's internal emotional intensity."
+        ),
+        "emotion_summary_file": emotion_summary_path,
+        "analysis_status_counts": {
+            str(status): int(count)
+            for status, count in analyzed_df["analysis_status"]
+            .value_counts(dropna=False)
+            .items()
+        },
+        "adjustment_suggested_count": int(
+            analyzed_df["adjustment_suggested"].sum()
+        ),
         "execution_time_seconds": round(execution_time, 2)
     }
     if metrics:
@@ -204,7 +236,14 @@ def generate_visualizations(df: pd.DataFrame, voted_up_col: str, report_dir: str
         if voted_up_col in df.columns:
             plt.figure(figsize=(12, 6))
             df_plot = df.copy()
-            df_plot["recommendation"] = df_plot[voted_up_col].map({True: "Recomendado", False: "Não Recomendado"})
+            df_plot["recommendation"] = df_plot[voted_up_col].map(
+                SentimentAnalyzer.normalize_voted_up
+            ).map(
+                {
+                    True: "Recomendado",
+                    False: "Não Recomendado",
+                }
+            )
             sns.countplot(data=df_plot, x="recommendation", hue="emotion", palette="tab10")
             plt.title("Emoção Predita vs Recomendação do Usuário")
             plt.xlabel("Recomendação")
@@ -227,7 +266,9 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
             text_val = str(row.get(text_col, ""))
             text_snippet = text_val[:80] + "..." if len(text_val) > 80 else text_val
             
-            voted_val = row.get(voted_col, None)
+            voted_val = SentimentAnalyzer.normalize_voted_up(
+                row.get(voted_col, None)
+            )
             if voted_val is True:
                 voted_str, voted_class = "Recomendado", "badge-joy"
             elif voted_val is False:
@@ -250,7 +291,7 @@ def write_html_report(run_dir, base_name, summary_data, analyzed_df, text_col, v
             score_str = f"{score_val:.1%}" if emo != "skipped_short" else "0.0%"
             
             adjustment_val = str(row.get("emotion_adjustment", "original"))
-            adjustment_class = "badge-adjusted" if adjustment_val == "adjusted" else "badge-original"
+            adjustment_class = "badge-adjusted" if adjustment_val == "suggested" else "badge-original"
             
             sample_rows_html += f"""
             <tr>

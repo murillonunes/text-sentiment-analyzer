@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union
+from typing import Any, Dict, List
 
 class BaseSentimentBackend(ABC):
     """
@@ -7,7 +7,7 @@ class BaseSentimentBackend(ABC):
     """
     
     @abstractmethod
-    def predict(self, text: str) -> Dict[str, Union[str, float]]:
+    def predict(self, text: str) -> Dict[str, Any]:
         """
         Predict label for a single text.
         
@@ -15,15 +15,17 @@ class BaseSentimentBackend(ABC):
             Dict containing:
                 - 'label': predicted class (str)
                 - 'score': confidence score (float, usually between 0 and 1)
+                - 'scores': mapping containing every returned label score
+                - 'status': analysis outcome
         """
         pass
         
     @abstractmethod
-    def predict_batch(self, texts: List[str]) -> List[Dict[str, Union[str, float]]]:
+    def predict_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
         """
         Predict labels for a batch of texts.
         
         Returns:
-            List of dicts containing 'label' and 'score' keys.
+            List of prediction dictionaries with raw label scores and status.
         """
         pass

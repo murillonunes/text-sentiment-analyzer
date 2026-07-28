@@ -24,6 +24,7 @@ dependencies = [
 
 [project.scripts]
 sentiment-analyzer = "sentiment_analyzer.cli:main"
+sentiment-segmented-analysis = "sentiment_analyzer.segmented_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
