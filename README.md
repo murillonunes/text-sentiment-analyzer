@@ -144,3 +144,41 @@ python -m sentiment_analyzer.segmented_cli \
 This produces separate segment predictions and review-level comparisons using
 both a token-weighted mean and the maximum score for each emotion. The segmented
 results are experimental and do not overwrite the original model predictions.
+
+## Temporal country analysis
+
+An analyzed CSV can be consolidated into country/year tables for exclusive
+top-emotion results and independent multi-label results:
+
+```bash
+python -m sentiment_analyzer.temporal_cli \
+  path/to/reviews_analyzed.csv \
+  --emotion-threshold 0.5 \
+  --partial-year 2026
+```
+
+The command writes separate files for analysis coverage, primary emotions,
+multi-label emotions, yearly top-three rankings, and year-over-year changes.
+Rows with `empty_text` remain in the coverage table but are excluded from
+emotion denominators.
+
+## Inferential temporal analysis
+
+Statistical tests and annual confidence intervals can be generated for complete
+years, with a separate sensitivity period that includes a partial year:
+
+```bash
+python -m sentiment_analyzer.statistical_cli \
+  path/to/reviews_analyzed.csv \
+  --complete-through 2025 \
+  --partial-year 2026 \
+  --emotion-threshold 0.5 \
+  --dominant-language BR=brazilian \
+  --dominant-language CN=schinese \
+  --dominant-language US=english
+```
+
+Outputs include Wilson confidence intervals, chi-square tests with Cramér's V,
+per-emotion logistic yearly trends, country-by-year interaction tests, and a
+dominant-language sensitivity analysis. Multiple tests use
+Benjamini-Hochberg false-discovery-rate correction.
