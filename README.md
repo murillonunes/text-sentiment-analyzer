@@ -182,3 +182,19 @@ Outputs include Wilson confidence intervals, chi-square tests with Cramér's V,
 per-emotion logistic yearly trends, country-by-year interaction tests, and a
 dominant-language sensitivity analysis. Multiple tests use
 Benjamini-Hochberg false-discovery-rate correction.
+
+## Portable research dashboard
+
+The temporal and optional statistical tables can be packaged into one
+self-contained HTML file:
+
+```bash
+python -m sentiment_analyzer.dashboard_cli \
+  outputs/temporal_run \
+  --statistical-dir outputs/statistical_run \
+  --output outputs/cyberpunk_2077_emotion_dashboard.html
+```
+
+The generated dashboard embeds only aggregated JSON. It contains no raw review
+text, uses no external fonts or JavaScript libraries, requires no server, and
+supports country, year, primary/multi-label, and trend-emotion filters.
